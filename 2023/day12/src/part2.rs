@@ -13,6 +13,30 @@ struct Record {
 }
 
 impl Record {
+    fn eliminate(&self) -> String {
+        let mut eliminated_literal = self.literal.clone();
+        loop {
+            let unknown_indexes = eliminated_literal.match_indices('?').map(|(i, _)| i).collect::<Vec<usize>>();
+            let mut changed = false;
+            for index in unknown_indexes {
+                let sharp_possible = check_posibility(&mut eliminated_literal, &index, &self.shape, "#");
+                let dot_possible = check_posibility(&mut eliminated_literal, &index, &self.shape, ".");
+                if sharp_possible && !dot_possible {
+                    eliminated_literal.replace_range(index..(index + 1), "#");
+                    changed = true;
+                } else if !sharp_possible && dot_possible {
+                    eliminated_literal.replace_range(index..(index + 1), ".");
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+        return eliminated_literal;
+    }
+    
+    
     fn get_all_completeds(&self) -> Vec<String> {
         let unknown_indexes = self.literal.match_indices('?').map(|(i, _)| i).collect::<Vec<usize>>();
         let mut completeds = vec![];
@@ -46,6 +70,13 @@ impl Record {
             shape: new_shape
         };
     }
+}
+
+fn check_posibility(test_literal: &mut String, test_index: &usize, shape: &Vec<usize>, test_char: &str) -> bool {
+    let mut changed_literal = test_literal.clone();
+    changed_literal.replace_range(test_index..&(test_index + 1), test_char);
+    
+    
 }
 
 fn get_shape(literal: &str) -> Vec<usize> {
