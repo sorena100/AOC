@@ -1,5 +1,5 @@
 mod part1;
 
 fn main() {
-    part1.run();
+    part1::run();
 }
