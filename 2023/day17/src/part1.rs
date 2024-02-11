@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::usize;
 
 #[derive(Debug, PartialEq)]
 struct Node {
@@ -57,14 +57,14 @@ impl Node {
         neighbors
     }
 
-    fn are_three_in_line(last_three: Vec<&Node>) -> bool {
-        if last_three.len() < 3 {
+    fn are_five_in_line(last_five: &Vec<&Node>) -> bool {
+        if last_five.len() < 5 {
             return false;
         }
-        if last_three[0].x + 2 == last_three[2].x
-            || last_three[0].y + 2 == last_three[2].y
-            || last_three[2].x + 2 == last_three[0].x
-            || last_three[2].y + 2 == last_three[0].y
+        if last_five[0].x + 4 == last_five[4].x
+            || last_five[0].y + 4 == last_five[4].y
+            || last_five[4].x + 4 == last_five[0].x
+            || last_five[4].y + 4 == last_five[0].y
         {
             return true;
         }
@@ -76,6 +76,13 @@ struct Grid {
     width: usize,
     height: usize,
     nodes: Vec<Node>,
+}
+
+#[derive(Debug, PartialEq)]
+enum PathValidity {
+    Valid,
+    FiveInLine,
+    PreviousNode,
 }
 
 impl Grid {
@@ -111,33 +118,27 @@ impl Grid {
         self.nodes.get(self.position_to_index(x, y))
     }
 
-    fn shortest_path<'a>(&'a self, start: &'a Node, end: &Node) -> Vec<&'a Node> {
+    fn shortest_path<'a>(&'a self, start: &'a Node, end: &'a Node) -> Vec<&'a Node> {
         let mut visited = vec![false; self.nodes.len()];
-        let mut costs = vec![std::usize::MAX/ 2; self.nodes.len()];
-        let mut queue = VecDeque::new();
+        let mut costs = vec![std::usize::MAX; self.nodes.len()];
         let mut previous = vec![None; self.nodes.len()];
-        queue.push_back(start);
         costs[self.position_to_index(start.x, start.y)] = 0;
-        let end_index = self.position_to_index(end.x, end.y);
 
-        while let Some(node) = queue.pop_front() {
-            if visited[end_index] {
+        while let Some(current_index) = get_lowest_unvisited(&visited, &costs) {
+            visited[current_index] = true;
+            if current_index == self.position_to_index(end.x, end.y) {
                 break;
             }
-            let current_index = self.position_to_index(node.x, node.y);
-            if visited[current_index] {
-                continue;
-            }
-            visited[current_index] = true;
-            println!("---------------------------------");
-            self.print_visited(&visited);
-            println!("---------------------------------");
+            // println!("---------------------------------");
+            // self.print_visited(&visited);
+            // println!("---------------------------------");
+            let node = &self.nodes[current_index];
             for neighbor in node.neighbors(self) {
                 let neighbor_index = self.position_to_index(neighbor.x, neighbor.y);
                 if visited[neighbor_index] {
                     continue;
                 }
-                if !self.is_path_valid(neighbor, node, previous.clone()) {
+                if self.get_path_validity(neighbor, node, previous.clone()) != PathValidity::Valid {
                     continue;
                 }
                 let new_cost = costs[current_index] + neighbor.cost;
@@ -145,38 +146,42 @@ impl Grid {
                     costs[neighbor_index] = new_cost;
                     previous[neighbor_index] = Some(node);
                 }
-                queue.push_back(neighbor);
             }
         }
+        self.print_visited(&visited);
 
         let mut path = vec![];
+        path.push(end);
         let mut current = end;
         while let Some(node) = previous[self.position_to_index(current.x, current.y)] {
             path.push(node);
             current = node;
         }
+        path.pop();
         path
     }
 
-    fn is_path_valid(&self, neighbor: &Node, current: &Node, previous: Vec<Option<&Node>>) -> bool {
+    fn get_path_validity(&self, neighbor: &Node, current: &Node, previous: Vec<Option<&Node>>) -> PathValidity {
         if previous[self.position_to_index(current.x, current.y)] == Some(neighbor) {
-            return false;
+            return PathValidity::PreviousNode;
         }
 
-        let mut last_three = Vec::new();
+        let mut last_five = Vec::new();
+        last_five.push(neighbor);
+        last_five.push(current);
         let mut cur = current;
         while let Some(node) = previous[self.position_to_index(cur.x, cur.y)] {
-            if last_three.len() == 3 {
+            if last_five.len() == 5 {
                 break;
             }
-            last_three.push(node);
+            last_five.push(node);
             cur = node;
         }
-        if Node::are_three_in_line(last_three) {
-            return false;
+        if Node::are_five_in_line(&last_five) {
+            return PathValidity::FiveInLine;
         }
 
-        return true;
+        return PathValidity::Valid;
     }
 
     fn print_visited(&self, visited: &Vec<bool>) {
@@ -192,6 +197,29 @@ impl Grid {
             println!();
         }
     }
+
+    fn print_path(&self, path: &Vec<&Node>) {
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let index = self.position_to_index(x, y);
+                if path.contains(&&self.nodes[index]) {
+                    print!("{}", self.nodes[index].cost);
+                } else {
+                    print!(".");
+                }
+            }
+            println!();
+        }
+    }
+}
+
+fn get_lowest_unvisited(visited: &Vec<bool>, costs: &Vec<usize>) -> Option<usize> {
+    costs
+        .iter()
+        .enumerate()
+        .filter(|(i, cost)| !visited[*i] && **cost < std::usize::MAX)
+        .min_by_key(|(_, cost)| *cost)
+        .map(|(i, _)| i)
 }
 
 pub fn run() {
@@ -276,6 +304,31 @@ mod tests {
         let start = grid.get_node(0, 0).unwrap();
         let end = grid.get_node(12, 12).unwrap();
         let path = grid.shortest_path(start, end);
-        assert_eq!(path.len(), 24);
+        let total_cost: usize = path.iter().map(|node| node.cost).sum();
+        println!("#############################################");
+        grid.print_path(&path);
+        println!("#############################################");
+        assert_eq!(total_cost, 102);
+    }
+
+    #[test]
+    fn test_get_lowest_unvisited() {
+        let visited = vec![true, false, false, true, false];
+        let costs = vec![1, 2, 3, 4, 5];
+        assert_eq!(get_lowest_unvisited(&visited, &costs), Some(1));
+    }
+
+    #[test]
+    fn test_get_lowest_unvisited_no_unvisited() {
+        let visited = vec![true, true, true, true, true];
+        let costs = vec![1, 2, 3, 4, 5];
+        assert_eq!(get_lowest_unvisited(&visited, &costs), None);
+    }
+
+    #[test]
+    fn test_get_lowest_unvisited_no_costs() {
+        let visited = vec![true, false, false, true, false];
+        let costs = vec![2, std::usize::MAX, std::usize::MAX, 4, std::usize::MAX];
+        assert_eq!(get_lowest_unvisited(&visited, &costs), None);
     }
 }
