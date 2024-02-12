@@ -1,5 +1,5 @@
 mod part1;
-mod dijktstra;
+mod graph_tools;
 
 fn main() {
     part1::run();
