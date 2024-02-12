@@ -1,5 +1,3 @@
-use std::fmt::write;
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 struct Node {
     position: (usize, usize),
