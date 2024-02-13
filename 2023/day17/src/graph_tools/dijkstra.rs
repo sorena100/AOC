@@ -47,7 +47,7 @@ pub enum Direction {
 }
 
 impl Direction {
-    fn opposite(&self) -> Direction {
+    pub(crate) fn opposite(&self) -> Direction {
         match self {
             Direction::North => Direction::South,
             Direction::South => Direction::North,

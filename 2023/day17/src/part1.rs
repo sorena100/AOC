@@ -29,14 +29,20 @@ fn evaluate(input: &str) -> usize {
 fn neighbors(node: &dijkstra::Node, grid: &[Vec<usize>]) -> Vec<dijkstra::Node> {
     let mut neighbors = Vec::new();
     for (next_direction, next_point) in node.point.valid_nexts(grid) {
-        if next_direction == node.direction {
-            neighbors.push(dijkstra::Node::new(
-                next_point,
-                node.direction,
-                node.forward_count + 1,
-            ));
-        } else {
-            neighbors.push(dijkstra::Node::new(next_point, next_direction, 0));
+        if next_direction == node.direction.opposite() {
+            continue;
+        } else if next_direction != node.direction {
+            neighbors.push(dijkstra::Node {
+                point: next_point,
+                direction: next_direction,
+                forward_count: 1,
+            });
+        } else if node.forward_count < 3 {
+            neighbors.push(dijkstra::Node {
+                point: next_point,
+                direction: next_direction,
+                forward_count: node.forward_count + 1,
+            });
         }
     }
     neighbors
