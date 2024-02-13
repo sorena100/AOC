@@ -1,11 +1,29 @@
-use std::usize;
+use std::{isize, usize};
 
 pub(crate) fn run() {
-    unimplemented!();
+    let input_path = "src/inputs/input.txt";
+    let input = std::fs::read_to_string(input_path).unwrap();
+    let result = evaluate(&input);
+    println!("Part 1: {}", result);
 }
 
 fn evaluate(input: &str) -> usize {
-    todo!();
+    let mut grid = create_grid(input);
+    println!("{}", grid_to_string(&grid));
+    remove_non_countereds(&mut grid);
+    let dot_or_hash_count = grid
+        .iter()
+        .map(|row| row.iter().filter(|c| **c == '.' || **c == '#').count())
+        .sum::<usize>();
+    println!("{}", grid_to_string(&grid));
+    dot_or_hash_count
+}
+
+fn grid_to_string(grid: &Vec<Vec<char>>) -> String {
+    grid.iter()
+        .map(|row| row.iter().collect::<String>())
+        .collect::<Vec<String>>()
+        .join("\n")
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -18,8 +36,8 @@ enum Direction {
 
 #[derive(Debug, Copy, Clone)]
 struct Point {
-    x: usize,
-    y: usize,
+    x: isize,
+    y: isize,
 }
 
 impl Point {
@@ -31,7 +49,7 @@ impl Point {
                 y: self.y - 1,
             });
         }
-        if self.y < grid.len() - 1 {
+        if self.y < grid.len() as isize - 1 {
             nexts.push(Point {
                 x: self.x,
                 y: self.y + 1,
@@ -43,7 +61,7 @@ impl Point {
                 y: self.y,
             });
         }
-        if self.x < grid[0].len() - 1 {
+        if self.x < grid[0].len() as isize - 1 {
             nexts.push(Point {
                 x: self.x + 1,
                 y: self.y,
@@ -120,23 +138,52 @@ fn create_grid(input: &str) -> Vec<Vec<char>> {
                 acc.extend(new_points);
                 acc
             });
+    let min_x = points.iter().map(|p| p.x).min().unwrap();
+    let min_y = points.iter().map(|p| p.y).min().unwrap();
     let max_x = points.iter().map(|p| p.x).max().unwrap();
     let max_y = points.iter().map(|p| p.y).max().unwrap();
-    let mut grid = vec![vec!['.'; max_x + 1]; max_y + 1];
+    let mut grid = vec![vec!['.'; (max_x - min_x + 1) as usize]; (max_y - min_y + 1) as usize];
     for point in points {
-        grid[point.y][point.x] = '#';
+        grid[(point.y - min_y) as usize][(point.x - min_x) as usize] = '#';
     }
     grid
 }
 
-fn remove_non_countereds(current_point: &Point, grid: &mut Vec<Vec<char>>) {
-    if grid[current_point.y][current_point.x] == '#' {
-        return;
+fn remove_non_countereds(grid: &mut Vec<Vec<char>>) {
+    let x_len = grid[0].len();
+    let y_len = grid.len();
+    let top_edges = (0..x_len).map(|x| Point {
+        x: x as isize,
+        y: 0,
+    });
+    let bottom_edges = (0..x_len).map(|x| Point {
+        x: x as isize,
+        y: (y_len - 1) as isize,
+    });
+    let left_edges = (0..y_len).map(|y| Point {
+        x: 0,
+        y: y as isize,
+    });
+    let right_edges = (0..y_len).map(|y| Point {
+        x: (x_len - 1) as isize,
+        y: y as isize,
+    });
+    let edges = top_edges
+        .chain(bottom_edges)
+        .chain(left_edges)
+        .chain(right_edges);
+    for edge in edges {
+        recrusively_remove_non_countereds(&edge, grid);
     }
-    grid[current_point.y][current_point.x] = 'X';
-    if grid[current_point.y][current_point.x] == '.' {
+}
+
+fn recrusively_remove_non_countereds(current_point: &Point, grid: &mut Vec<Vec<char>>) {
+    let current_value = grid[current_point.y as usize][current_point.x as usize];
+    if current_value == '.' {
+        println!("Removing {:?}", current_point);
+        grid[current_point.y as usize][current_point.x as usize] = 'X';
         for next in current_point.valid_nexts(grid) {
-            remove_non_countereds(&next, grid);
+            recrusively_remove_non_countereds(&next, grid);
         }
     }
 }
