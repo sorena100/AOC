@@ -9,16 +9,15 @@ pub(crate) fn run() {
 
 fn evaluate(input: &str) -> usize {
     let mut grid = create_grid(input);
-    println!("{}", grid_to_string(&grid));
     remove_non_countereds(&mut grid);
     let dot_or_hash_count = grid
         .iter()
         .map(|row| row.iter().filter(|c| **c == '.' || **c == '#').count())
         .sum::<usize>();
-    println!("{}", grid_to_string(&grid));
     dot_or_hash_count
 }
 
+#[allow(dead_code)]
 fn grid_to_string(grid: &Vec<Vec<char>>) -> String {
     grid.iter()
         .map(|row| row.iter().collect::<String>())
@@ -173,17 +172,18 @@ fn remove_non_countereds(grid: &mut Vec<Vec<char>>) {
         .chain(left_edges)
         .chain(right_edges);
     for edge in edges {
-        recrusively_remove_non_countereds(&edge, grid);
+        remove_non_countereds_from_edge(&edge, grid);
     }
 }
 
-fn recrusively_remove_non_countereds(current_point: &Point, grid: &mut Vec<Vec<char>>) {
-    let current_value = grid[current_point.y as usize][current_point.x as usize];
-    if current_value == '.' {
-        println!("Removing {:?}", current_point);
-        grid[current_point.y as usize][current_point.x as usize] = 'X';
-        for next in current_point.valid_nexts(grid) {
-            recrusively_remove_non_countereds(&next, grid);
+fn remove_non_countereds_from_edge(edge_point: &Point, grid: &mut Vec<Vec<char>>) {
+    let mut to_visit = vec![*edge_point];
+    while let Some(point) = to_visit.pop() {
+        if grid[point.y as usize][point.x as usize] == '.' {
+            grid[point.y as usize][point.x as usize] = 'X';
+            for next in point.valid_nexts(grid) {
+                to_visit.push(next);
+            }
         }
     }
 }
