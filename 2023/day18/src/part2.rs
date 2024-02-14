@@ -2,7 +2,7 @@ pub(crate) fn run() {
     let input_path = "src/inputs/input.txt";
     let input = std::fs::read_to_string(input_path).unwrap();
     let result = evaluate(&input);
-    println!("Part 1: {}", result);
+    println!("Part 2: {}", result);
 }
 
 fn evaluate(input: &str) -> usize {
@@ -77,14 +77,14 @@ struct Instruction {
 impl Instruction {
     fn new(input: &str) -> Instruction {
         let instruction_parts = input.split(' ').collect::<Vec<&str>>();
-        let direction = match instruction_parts[0] {
-            "U" => Direction::Up,
-            "D" => Direction::Down,
-            "L" => Direction::Left,
-            "R" => Direction::Right,
+        let distance = usize::from_str_radix(&instruction_parts[2][2..7], 16).unwrap();
+        let direction = match &instruction_parts[2][7..8] {
+            "3" => Direction::Up,
+            "1" => Direction::Down,
+            "2" => Direction::Left,
+            "0" => Direction::Right,
             _ => panic!("Invalid direction"),
         };
-        let distance = instruction_parts[1].parse::<usize>().unwrap();
         Instruction {
             direction,
             distance,
@@ -206,8 +206,28 @@ R 2 (#7807d2)
 U 3 (#a77fa3)
 L 2 (#015232)
 U 2 (#7a21e3)";
-        let expected = 62;
+        let expected = 952408144115;
         let actual = evaluate(input);
         assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_instruction_new() {
+        let input = "R 6 (#70c710)
+D 5 (#0dc571)
+L 2 (#5713f0)
+D 2 (#d2c081)
+R 2 (#59c680)
+D 2 (#411b91)
+L 5 (#8ceee2)
+U 2 (#caa173)
+L 1 (#1b58a2)
+U 2 (#caa171)
+R 2 (#7807d2)
+U 3 (#a77fa3)
+L 2 (#015232)
+U 2 (#7a21e3)";
+        let instructions = input.lines().map(|l| Instruction::new(l)).collect::<Vec<Instruction>>();
+        assert_eq!(instructions[0].distance, 461937);
     }
 }
