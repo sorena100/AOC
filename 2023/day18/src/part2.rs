@@ -5,14 +5,22 @@ pub(crate) fn run() {
     println!("Part 2: {}", result);
 }
 
-fn evaluate(input: &str) -> usize {
-    let mut grid = create_grid(input);
-    remove_non_countereds(&mut grid);
-    let dot_or_hash_count = grid
-        .iter()
-        .map(|row| row.iter().filter(|c| **c == '.' || **c == '#').count())
-        .sum::<usize>();
-    dot_or_hash_count
+fn evaluate(input: &str) -> isize {
+    let start = Point::new(0, 0);
+    let mut points = vec![start];
+    let instructions = input
+        .lines()
+        .map(|l| Instruction::new(l))
+        .collect::<Vec<Instruction>>();
+    instructions.iter().for_each(|instruction| {
+        let last = points.iter().last().unwrap();
+        let next = move_to(&last, &instruction.direction, instruction.distance);
+        points.push(next);
+    });
+    points.pop();
+    let area = shoelace(&points);
+    let premiter = instructions.iter().map(|i| i.distance).sum::<usize>() as isize;
+    (area + premiter) / 2 + 1
 }
 
 #[allow(dead_code)]
@@ -31,40 +39,19 @@ enum Direction {
     Right,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 struct Point {
     x: isize,
     y: isize,
 }
 
 impl Point {
-    fn valid_nexts(&self, grid: &Vec<Vec<char>>) -> Vec<Point> {
-        let mut nexts = Vec::new();
-        if self.y > 0 {
-            nexts.push(Point {
-                x: self.x,
-                y: self.y - 1,
-            });
-        }
-        if self.y < grid.len() as isize - 1 {
-            nexts.push(Point {
-                x: self.x,
-                y: self.y + 1,
-            });
-        }
-        if self.x > 0 {
-            nexts.push(Point {
-                x: self.x - 1,
-                y: self.y,
-            });
-        }
-        if self.x < grid[0].len() as isize - 1 {
-            nexts.push(Point {
-                x: self.x + 1,
-                y: self.y,
-            });
-        }
-        nexts
+    fn new(x: isize, y: isize) -> Point {
+        Point { x, y }
+    }
+
+    fn cross_product(&self, other: &Point) -> isize {
+        self.x * other.y - self.y * other.x
     }
 }
 
@@ -92,98 +79,21 @@ impl Instruction {
     }
 }
 
-fn move_one(start: &Point, direction: &Direction) -> Point {
+fn move_to(start: &Point, direction: &Direction, distance: usize) -> Point {
     match direction {
-        Direction::Up => Point {
-            x: start.x,
-            y: start.y - 1,
-        },
-        Direction::Down => Point {
-            x: start.x,
-            y: start.y + 1,
-        },
-        Direction::Left => Point {
-            x: start.x - 1,
-            y: start.y,
-        },
-        Direction::Right => Point {
-            x: start.x + 1,
-            y: start.y,
-        },
+        Direction::Up => Point::new(start.x, start.y - distance as isize),
+        Direction::Down => Point::new(start.x, start.y + distance as isize),
+        Direction::Left => Point::new(start.x - distance as isize, start.y),
+        Direction::Right => Point::new(start.x + distance as isize, start.y),
     }
 }
 
-fn dig(start: &Point, instruction: &Instruction) -> Vec<Point> {
-    let mut points = Vec::new();
-    let mut current = *start;
-    for _ in 0..instruction.distance {
-        current = move_one(&current, &instruction.direction);
-        points.push(current);
-    }
+fn shoelace(points: &Vec<Point>) -> isize {
     points
-}
-
-fn create_grid(input: &str) -> Vec<Vec<char>> {
-    let start = Point { x: 0, y: 0 };
-    let points =
-        input
-            .lines()
-            .map(|l| Instruction::new(l))
-            .fold(vec![start], |mut acc, instruction| {
-                let last = acc.last().unwrap();
-                let new_points = dig(last, &instruction);
-                acc.extend(new_points);
-                acc
-            });
-    let min_x = points.iter().map(|p| p.x).min().unwrap();
-    let min_y = points.iter().map(|p| p.y).min().unwrap();
-    let max_x = points.iter().map(|p| p.x).max().unwrap();
-    let max_y = points.iter().map(|p| p.y).max().unwrap();
-    let mut grid = vec![vec!['.'; (max_x - min_x + 1) as usize]; (max_y - min_y + 1) as usize];
-    for point in points {
-        grid[(point.y - min_y) as usize][(point.x - min_x) as usize] = '#';
-    }
-    grid
-}
-
-fn remove_non_countereds(grid: &mut Vec<Vec<char>>) {
-    let x_len = grid[0].len();
-    let y_len = grid.len();
-    let top_edges = (0..x_len).map(|x| Point {
-        x: x as isize,
-        y: 0,
-    });
-    let bottom_edges = (0..x_len).map(|x| Point {
-        x: x as isize,
-        y: (y_len - 1) as isize,
-    });
-    let left_edges = (0..y_len).map(|y| Point {
-        x: 0,
-        y: y as isize,
-    });
-    let right_edges = (0..y_len).map(|y| Point {
-        x: (x_len - 1) as isize,
-        y: y as isize,
-    });
-    let edges = top_edges
-        .chain(bottom_edges)
-        .chain(left_edges)
-        .chain(right_edges);
-    for edge in edges {
-        remove_non_countereds_from_edge(&edge, grid);
-    }
-}
-
-fn remove_non_countereds_from_edge(edge_point: &Point, grid: &mut Vec<Vec<char>>) {
-    let mut to_visit = vec![*edge_point];
-    while let Some(point) = to_visit.pop() {
-        if grid[point.y as usize][point.x as usize] == '.' {
-            grid[point.y as usize][point.x as usize] = 'X';
-            for next in point.valid_nexts(grid) {
-                to_visit.push(next);
-            }
-        }
-    }
+        .iter()
+        .zip(points.iter().cycle().skip(1))
+        .map(|(p1, p2)| p1.cross_product(p2))
+        .sum::<isize>()
 }
 
 #[cfg(test)]
@@ -227,7 +137,23 @@ R 2 (#7807d2)
 U 3 (#a77fa3)
 L 2 (#015232)
 U 2 (#7a21e3)";
-        let instructions = input.lines().map(|l| Instruction::new(l)).collect::<Vec<Instruction>>();
+        let instructions = input
+            .lines()
+            .map(|l| Instruction::new(l))
+            .collect::<Vec<Instruction>>();
         assert_eq!(instructions[0].distance, 461937);
+    }
+
+    #[test]
+    fn test_shoelace() {
+        let points = vec![
+            Point::new(1, 6),
+            Point::new(3, 1),
+            Point::new(7, 2),
+            Point::new(4, 4),
+            Point::new(8, 5),
+        ];
+        let area = shoelace(&points) as f64 / 2.0;
+        assert_eq!(area, 16.5);
     }
 }
