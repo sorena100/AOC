@@ -1,4 +1,5 @@
-use std::collections::{HashMap, LinkedList};
+use std::{collections::{HashMap, LinkedList}, isize, usize};
+use num::Integer;
 
 #[derive(Debug, Clone, PartialEq)]
 enum ModuleType {
@@ -50,32 +51,26 @@ impl Module {
         }
     }
 
-    fn handle_pulse(&mut self, pulse: Pulse, from: &str) -> Vec<(String, Pulse)> {
+    fn handle_pulse(&mut self, pulse: Pulse, from: &str) -> Option<Pulse> {
         return match &mut self.module_type {
             ModuleType::FlipFlop(state) => {
                 if pulse == Pulse::High {
-                    vec![]
+                    None
                 } else {
                     let new_state = !*state;
                     self.module_type = ModuleType::FlipFlop(new_state);
-                    self.outputs.iter().map(|s| (s.clone(), Pulse::from_bool(new_state))).collect()
+                    Some(Pulse::from_bool(new_state))
                 }
             },
             ModuleType::Conjunction(memory) => {
-                if self.name == "ll" { 
-                    println!("{:?}", memory);
-                }
-                if self.name == "rx" {
-                    println!("{:?}", memory);
-                }
                 memory.insert(from.to_string(), pulse == Pulse::High);
                 match memory.iter().all(|(_, v)| *v) {
-                    true => self.outputs.iter().map(|s| (s.clone(), Pulse::Low)).collect(),
-                    false => self.outputs.iter().map(|s| (s.clone(), Pulse::High)).collect(),
+                    true => Some(Pulse::Low),
+                    false => Some(Pulse::High)
                 }
             },
             ModuleType::Broadcaster => {
-                self.outputs.iter().map(|s| (s.clone(), pulse.clone())).collect()
+                Some(pulse.clone())
             }
         }       
     }
@@ -87,9 +82,6 @@ fn populate_conjunction_inputs(modules: &mut Vec<Module>) {
         if let ModuleType::Conjunction(_) = &module.module_type {
             let inputs = reference.iter().filter(|m| m.outputs.contains(&module.name)).collect::<Vec<&Module>>();
             let hash = inputs.iter().map(|m| (m.name.clone(), false)).collect();
-            if module.name == "ll" {
-                println!("{:?}", hash);
-            }
             module.module_type = ModuleType::Conjunction(hash);
         }
     }
@@ -107,7 +99,16 @@ fn evaluate(input: &str) -> usize {
     populate_conjunction_inputs(&mut modules);
     let mut queue: LinkedList<(String, Pulse, String)> = LinkedList::new();
     let mut button_presses = 0;
+    let mut the_four_modules: HashMap<String, usize> = HashMap::from_iter(vec![
+        ("kl".to_string(), 0),
+        ("vm".to_string(), 0),
+        ("kv".to_string(), 0),
+        ("vb".to_string(), 0),
+    ]);
     loop {
+        if the_four_modules.iter().all(|(_, v)| v > &0) {
+            break;
+        }
         button_presses += 1;
         queue.push_back(("button".to_string(), Pulse::Low, "broadcaster".to_string()));
         while let Some((from_name, pulse, to_name)) = queue.pop_front() {
@@ -116,14 +117,24 @@ fn evaluate(input: &str) -> usize {
             }
             let module = match modules.iter_mut().find(|m| m.name == to_name) {
                 Some(m) => m,
-                None => {println!("Module not found: {}", to_name); continue;},
+                None => continue,
             };
-            let outputs = module.handle_pulse(pulse, &from_name);
-            outputs.iter().for_each(|(name, pulse)| {
-                queue.push_back((module.name.clone(), pulse.clone(), name.clone()));
+            let output = match module.handle_pulse(pulse, &from_name) {
+                Some(p) => p,
+                None => continue,
+            };
+            if output == Pulse::High {
+                if the_four_modules.get(&module.name) == Some(&0) {
+                    the_four_modules.insert(module.name.clone(), button_presses);
+                }
+            }
+            module.outputs.iter().for_each(|name| {
+                queue.push_back((module.name.clone(), output.clone(), name.clone()));
             });
         }
     }
+
+    the_four_modules.iter().fold(1 as isize, |acc, (_, v)| acc.lcm(&(*v as isize))) as usize
 }
 
 #[cfg(test)]
