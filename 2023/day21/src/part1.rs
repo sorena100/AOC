@@ -1,6 +1,9 @@
+use std::collections::HashSet;
+use indicatif::ProgressIterator;
+
 use itertools::Itertools;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct Point {
     x: usize,
     y: usize,
@@ -59,15 +62,15 @@ fn evaluate(input: &str, steps: usize) -> usize {
         y: start_index / (width + 1), // same here
         odd: false,
     };
-    let mut plots = vec![];
-    let mut current = vec![start];
-    for _ in 0..steps {
-        let mut next = vec![];
+    let mut plots = HashSet::new();
+    let mut current = HashSet::from_iter(vec![start]);
+    for _ in (0..steps).progress() {
+        let mut next = HashSet::new();
         for point in current {
             for neighbour in point.get_neighbours(width, height) {
                 if grid.get(&neighbour) != Some('#') {
-                    next.push(neighbour);
-                    plots.push(neighbour);
+                    next.insert(neighbour);
+                    plots.insert(neighbour);
                 }
             }
         }
